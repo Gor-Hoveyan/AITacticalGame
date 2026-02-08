@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Tactical Decision Agent</title>
+    <link rel="stylesheet" href="./src/styles/index.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@400;700&family=Noto+Sans+Armenian:wght@400;700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <div class="header-content">
+            <h1>AI Tactical Agent</h1>
+            <p>Real-time Neural Decision System</p>
+        </div>
+        <button id="lang-switch" class="btn-lang" title="Switch Language">🇦🇲 HY</button>
+      </header>
+
+      <main class="container">
+        <section class="controls glass">
+          <h2>Input Parameters</h2>
+          <div class="input-grid">
+            <div class="input-group">
+              <label for="health">Health Level</label>
+              <input type="range" id="health" min="0" max="100" value="100" />
+              <span class="value" id="health-val">100</span>
+            </div>
+            <div class="input-group">
+              <label for="melee">Melee Weapons</label>
+              <input type="range" id="melee" min="0" max="5" value="1" />
+              <span class="value" id="melee-val">1</span>
+            </div>
+            <div class="input-group">
+              <label for="firearms">Firearms</label>
+              <input type="range" id="firearms" min="0" max="5" value="0" />
+              <span class="value" id="firearms-val">0</span>
+            </div>
+            <div class="input-group">
+              <label for="ammo">Ammo Level</label>
+              <input type="range" id="ammo" min="0" max="100" value="50" />
+              <span class="value" id="ammo-val">50</span>
+            </div>
+            <div class="input-group">
+              <label for="enemies">Enemies</label>
+              <input type="range" id="enemies" min="0" max="10" value="1" />
+              <span class="value" id="enemies-val">1</span>
+            </div>
+            <div class="input-group">
+              <label for="distance">Enemy Distance</label>
+              <input type="range" id="distance" min="0" max="1000" value="500" />
+              <span class="value" id="distance-val">500</span>
+            </div>
+            <div class="input-group">
+              <label for="cover">Environmental Cover</label>
+              <input type="range" id="cover" min="0" max="100" value="0" />
+              <span class="value" id="cover-val">0</span>
+            </div>
+            <div class="input-group">
+              <label for="stamina">Stamina</label>
+              <input type="range" id="stamina" min="0" max="100" value="100" />
+              <span class="value" id="stamina-val">100</span>
+            </div>
+          </div>
+          <button id="update-ai" class="btn-primary">Process Decision</button>
+        </section>
+
+        <section class="display">
+          <div class="visualization-container glass">
+              <div id="game-info">
+                  <div class="status-badge" id="ai-status">Ready</div>
+              </div>
+              
+              <!-- Live HUD -->
+              <div id="combat-hud">
+                  <div class="hud-stat health-stat">
+                      <span class="hud-icon">❤️</span>
+                      <div class="hud-bar">
+                          <div class="hud-bar-fill" id="hud-health-bar" style="width: 100%"></div>
+                      </div>
+                      <span class="hud-value" id="hud-health">100</span>
+                  </div>
+                  <div class="hud-stat ammo-stat">
+                      <span class="hud-icon">🔫</span>
+                      <span class="hud-value" id="hud-ammo">50</span>
+                  </div>
+                  <div class="hud-stat stamina-stat">
+                      <span class="hud-icon">⚡</span>
+                      <div class="hud-bar">
+                          <div class="hud-bar-fill stamina-fill" id="hud-stamina-bar" style="width: 100%"></div>
+                      </div>
+                      <span class="hud-value" id="hud-stamina">100</span>
+                  </div>
+                  <div class="hud-stat enemy-stat">
+                      <span class="hud-icon">💀</span>
+                      <span class="hud-value"><span id="hud-kills">0</span> / <span id="hud-enemies">1</span></span>
+                  </div>
+              </div>
+              
+              <!-- Game Over Overlay -->
+              <div id="game-over" class="game-over-overlay hidden">
+                  <div class="game-over-text" id="game-over-text">GAME OVER</div>
+                  <button id="restart-btn" class="btn-restart">Restart</button>
+              </div>
+              
+              <canvas id="game-canvas"></canvas>
+          </div>
+          
+          <!-- Battle Controls -->
+          <div class="battle-controls glass">
+              <button id="start-battle" class="btn-battle">⚔️ Start Battle</button>
+              <button id="stop-battle" class="btn-stop hidden">⏹️ Stop</button>
+          </div>
+          
+          <div class="decision-card glass">
+            <h3>Neural Output</h3>
+            <div id="decision-text" class="decision">Standby</div>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <p>&copy; 2026 AI Tactical Research Project</p>
+      </footer>
+    </div>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
