@@ -60,89 +60,53 @@ export class NeuralNetwork {
         }
 
         // Input indices:
-        // 0: Health (0-1), 1: Melee (0-1), 2: Firearms (0-1), 3: Ammo (0-1)
-        // 4: Enemies (0-1), 5: Closeness (0-1, inverted distance), 6: Cover (0-1), 7: Stamina (0-1)
+        // 0: Health (0-1), 1: Melee (0-1), 2: Firearms (0-1), 3: Enemies (0-1)
 
-        // Hidden Layer Mapping (8 hidden nodes):
-        // H0: Combat Ready, H1: In Danger, H2: Has Cover, H3: Can Move
-        // H4: Offense Score, H5: Defense Score, H6: Stealth Score, H7: Evasion Score
+        // Hidden Layer Mapping:
+        // H0: Lethality (Weapons)
+        // H1: Survivability (Health)
+        // H2: Threat (Enemies)
 
-        // === INPUT TO HIDDEN ===
+        // === INPUT TO HIDDEN (STRICT ISOLATION) ===
 
-        // H0 - Combat Ready: health + weapons + ammo
-        this.weights_ih[0][0] = 3.0;   // Health
-        this.weights_ih[2][0] = 4.0;   // Firearms
-        this.weights_ih[3][0] = 3.0;   // Ammo
-        this.weights_ih[1][0] = 2.0;   // Melee backup
-        this.weights_ih[this.inputNodes][0] = -3.0; // Moderate threshold
+        // H0 - Lethality: Driven exclusively by Weapons
+        this.weights_ih[2][0] = 8.0;   // Firearms (Strong)
+        this.weights_ih[1][0] = 6.0;   // Melee (Strong)
+        this.weights_ih[this.inputNodes][0] = -5.0; // Needs at least *some* weapon to activate Lethality
 
-        // H1 - In Danger: enemies + closeness - health
-        this.weights_ih[4][1] = 5.0;   // Many enemies = danger
-        this.weights_ih[5][1] = 5.0;   // Close enemies = danger
-        this.weights_ih[0][1] = -3.0;  // Good health reduces danger
-        this.weights_ih[this.inputNodes][1] = -2.0;
+        // H1 - Survivability: Driven exclusively by Health
+        this.weights_ih[0][1] = 6.0;   // Health
+        this.weights_ih[this.inputNodes][1] = -3.0; // Needs >50% health to be "Highly Survivable"
 
-        // H2 - Has Cover: cover available
-        this.weights_ih[6][2] = 6.0;   // Cover directly maps
-        this.weights_ih[this.inputNodes][2] = -2.0;
+        // H2 - Threat: Driven exclusively by Enemies
+        this.weights_ih[3][2] = 6.0;   // Enemies
+        this.weights_ih[this.inputNodes][2] = -3.0; // Even 1-2 enemies is a threat
 
-        // H3 - Can Move: stamina available
-        this.weights_ih[7][3] = 5.0;   // Stamina
-        this.weights_ih[0][3] = 2.0;   // Health helps mobility
-        this.weights_ih[this.inputNodes][3] = -2.0;
-
-        // H4 - Offense Score (combination)
-        this.weights_ih[0][4] = 4.0;   // High health
-        this.weights_ih[2][4] = 5.0;   // Firearms
-        this.weights_ih[3][4] = 4.0;   // Ammo
-        this.weights_ih[4][4] = -2.0;  // Fewer enemies better for offense
-        this.weights_ih[this.inputNodes][4] = -4.0;
-
-        // H5 - Defense Score
-        this.weights_ih[0][5] = -4.0;  // Low health = need defense
-        this.weights_ih[4][5] = 4.0;   // Many enemies
-        this.weights_ih[5][5] = 4.0;   // Close enemies
-        this.weights_ih[this.inputNodes][5] = -3.0;
-
-        // H6 - Stealth Score
-        this.weights_ih[6][6] = 6.0;   // Cover
-        this.weights_ih[4][6] = 3.0;   // Enemies present
-        this.weights_ih[5][6] = -2.0;  // Too close = can't hide
-        this.weights_ih[this.inputNodes][6] = -3.0;
-
-        // H7 - Evasion Score
-        this.weights_ih[7][7] = 5.0;   // Stamina
-        this.weights_ih[5][7] = 3.0;   // Close enemies = need evasion
-        this.weights_ih[6][7] = -2.0;  // If cover, don't need evasion
-        this.weights_ih[this.inputNodes][7] = -3.0;
-
-        // === HIDDEN TO OUTPUT ===
+        // Output Nodes Mapping
         // Outputs: 0=Attack, 1=Retreat, 2=Evade, 3=Hide
 
-        // Attack (when combat ready AND offense score high)
-        this.weights_ho[0][0] = 6.0;   // Combat Ready -> Attack
-        this.weights_ho[4][0] = 6.0;   // Offense Score -> Attack
-        this.weights_ho[1][0] = -4.0;  // In Danger discourages Attack
-        this.weights_ho[this.hiddenNodes][0] = -2.0;
+        // Attack: Focuses on high weapons. Swarms (Threat) discourage it slightly, but Lethality overpowers fear.
+        this.weights_ho[0][0] = 14.0;  // High Lethality (Buffed from 12)
+        this.weights_ho[1][0] = 6.0;   // Survivability (Buffed from 4)
+        this.weights_ho[2][0] = -4.0;  // Threat (Lowered penalty from -6 to -4)
+        this.weights_ho[this.hiddenNodes][0] = -5.0; // Bias (Easier to trigger)
 
-        // Retreat (when in danger AND low defense options)
-        this.weights_ho[1][1] = 6.0;   // In Danger -> Retreat
-        this.weights_ho[5][1] = 5.0;   // Defense Score -> Retreat
-        this.weights_ho[0][1] = -5.0;  // Combat Ready discourages Retreat
-        this.weights_ho[2][1] = -3.0;  // Has Cover discourages Retreat (hide instead)
-        this.weights_ho[this.hiddenNodes][1] = -3.0;
+        // Retreat: Only if Threat is massive AND Lethality is low.
+        this.weights_ho[2][1] = 8.0;   // Threat (Reduced from 10)
+        this.weights_ho[1][1] = -6.0;  // Survivability (even more confident with health)
+        this.weights_ho[0][1] = -10.0; // Lethality (weapons strongly discourage retreat)
+        this.weights_ho[this.hiddenNodes][1] = -2.0; // Bias (Harder to trigger)
 
-        // Evade (when can move AND moderate danger)
-        this.weights_ho[3][2] = 5.0;   // Can Move -> Evade
-        this.weights_ho[7][2] = 5.0;   // Evasion Score -> Evade
-        this.weights_ho[1][2] = 2.0;   // Danger helps Evade
-        this.weights_ho[2][2] = -3.0;  // Has Cover discourages Evade (hide instead)
-        this.weights_ho[this.hiddenNodes][2] = -2.0;
+        // Evade: Desperation move. Very low health -> high Evade
+        this.weights_ho[2][2] = 5.0;   // Threat
+        this.weights_ho[1][2] = -10.0; // Survivability (LOW health -> high Evade)
+        this.weights_ho[0][2] = -2.0;  // Doesn't matter if you have weapons if you are dying
+        this.weights_ho[this.hiddenNodes][2] = 2.0; // Positive bias, but survivability pulls it down if health is high
 
-        // Hide (when has cover AND enemies present)
-        this.weights_ho[2][3] = 7.0;   // Has Cover -> Hide
-        this.weights_ho[6][3] = 6.0;   // Stealth Score -> Hide
-        this.weights_ho[0][3] = -4.0;  // Combat Ready discourages hiding
-        this.weights_ho[this.hiddenNodes][3] = -2.0;
+        // Hide: Wait and see. Triggers moderately on high Threat if you just don't want to fight.
+        this.weights_ho[2][3] = 6.0;   // Threat
+        this.weights_ho[1][3] = 2.0;   // Survivability
+        this.weights_ho[0][3] = -4.0;  // Lethality
+        this.weights_ho[this.hiddenNodes][3] = -6.0; // Bias
     }
 }
