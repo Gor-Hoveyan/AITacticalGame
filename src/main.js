@@ -239,6 +239,7 @@ class AppController {
                 restart: "Restart",
                 victory: "VICTORY!",
                 gameOver: "GAME OVER",
+                retreated: "Hero Retreated!",
                 footer: "© 2026 AI Tactical Research Project",
                 actions: ["Attack", "Retreat", "Evade", "Hide", "Standby"]
             },
@@ -255,6 +256,7 @@ class AppController {
                 restart: "Վերախաղալ",
                 victory: "ՀԱՂԹԱՆԱԿ!",
                 gameOver: "ԽԱՂԻ ԱՎԱՐՏ",
+                retreated: "Հերոսը Նահանջեց!",
                 footer: "© 2026 Տակտիկական Հետազոտական Ծրագիր",
                 actions: ["Հարձակում", "Նահանջ", "Խուսափում", "Թաքնվել", "Սպասման ռեժիմ"]
             }
@@ -293,7 +295,7 @@ class AppController {
         this.meleeSwingActive = false;
         
         // Player position
-        this.playerX = 100;
+        this.playerX = 180;
         this.playerY = 0;
         this.playerBaseY = 0;
         
@@ -329,6 +331,7 @@ class AppController {
         };
 
         // Battle Controls
+        this.battleControlsEl = document.querySelector('.battle-controls');
         this.startBtn = document.getElementById('start-battle');
         this.stopBtn = document.getElementById('stop-battle');
         this.restartBtn = document.getElementById('restart-btn');
@@ -376,6 +379,33 @@ class AppController {
         
         document.getElementById('lang-switch').addEventListener('click', () => this.toggleLanguage());
         
+        // Fullscreen toggle
+        const fsBtn = document.getElementById('fullscreen-btn');
+        const vizContainer = document.querySelector('.visualization-container');
+        fsBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                vizContainer.requestFullscreen().catch(err => {
+                    console.warn('Fullscreen failed:', err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        });
+        
+        document.addEventListener('fullscreenchange', () => {
+            const isFs = !!document.fullscreenElement;
+            fsBtn.textContent = isFs ? '✕' : '⛶';
+            fsBtn.title = isFs ? 'Exit Fullscreen' : 'Toggle Fullscreen';
+            setTimeout(() => {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.canvas.width = rect.width;
+                this.canvas.height = rect.height;
+                // Use reference height for playerBaseY so it stays in the scaled coordinate space
+                this.playerBaseY = this.refHeight / 2;
+                this.playerY = this.playerBaseY;
+            }, 100);
+        });
+
         // Initial language setup
         this.updateInterface();
         this.updateBtn.addEventListener('click', () => this.processDecision());
@@ -403,6 +433,7 @@ class AppController {
         this.totalEnemies = this.enemies.length;
         
         // Update UI
+        this.battleControlsEl.classList.remove('hidden');
         this.startBtn.classList.add('hidden');
         this.stopBtn.classList.remove('hidden');
         this.gameOverEl.classList.add('hidden');
@@ -450,8 +481,9 @@ class AppController {
     spawnEnemies() {
         this.enemies = [];
         const count = parseInt(this.inputs.enemies.value);
-        const w = this.canvas.width;
-        const h = this.canvas.height;
+        // Use reference dimensions so positions work with the fullscreen scale transform
+        const w = this.refWidth || this.canvas.width;
+        const h = this.refHeight || this.canvas.height;
         
         // Enemies spawn in the right 60% of the canvas
         const spawnAreaStart = w * 0.35;
@@ -602,7 +634,7 @@ class AppController {
         
         // Escape Logic (Past the wall to the far left)
         if (this.playerX < 50) {
-            this.endGame(true, "Hero Retreated!");
+            this.endGame(true, this.translations[this.lang].retreated);
             return;
         }
 
@@ -912,14 +944,16 @@ class AppController {
 
     toggleLanguage() {
         this.lang = this.lang === 'en' ? 'hy' : 'en';
-        const btn = document.getElementById('lang-switch');
-        btn.textContent = this.lang === 'en' ? '🇦🇲 HY' : '🇺🇸 EN';
         this.updateInterface();
         this.processDecision(); 
     }
 
     updateInterface() {
         const t = this.translations[this.lang];
+        
+        // Update Language Button
+        const btn = document.getElementById('lang-switch');
+        btn.textContent = this.lang === 'en' ? '🇦🇲 HY' : '🇺🇸 EN';
         
         // Header & Footer
         document.querySelector('header h1').textContent = t.title;
@@ -970,6 +1004,7 @@ class AppController {
         text.style.color = won ? '#10b981' : '#f43f5e';
         this.stopBtn.classList.add('hidden');
         this.startBtn.classList.add('hidden'); // Keep start button hidden, use restart
+        this.battleControlsEl.classList.add('hidden'); // Hide the empty container overlay
     }
 
     setupCanvas() {
@@ -977,7 +1012,14 @@ class AppController {
             const rect = this.canvas.parentElement.getBoundingClientRect();
             this.canvas.width = rect.width;
             this.canvas.height = rect.height;
-            this.playerBaseY = rect.height / 2;
+            
+            // Store reference dimensions on first call (normal non-fullscreen size)
+            if (!this.refWidth) {
+                this.refWidth = rect.width;
+                this.refHeight = rect.height;
+            }
+            
+            this.playerBaseY = this.refHeight / 2; // Keep base Y in reference coords
             this.playerY = this.playerBaseY;
         };
         window.addEventListener('resize', resize);
@@ -1062,12 +1104,26 @@ class AppController {
         const w = this.canvas.width;
         const h = this.canvas.height;
         
+        // Clear the entire real canvas
         ctx.fillStyle = "#0f172a";
         ctx.fillRect(0, 0, w, h);
         
+        // Calculate scale factor for fullscreen
+        const scale = Math.min(w / this.refWidth, h / this.refHeight);
+        const offsetX = (w - this.refWidth * scale) / 2;
+        const offsetY = (h - this.refHeight * scale) / 2;
+        
+        // Apply scaling transform — everything below draws in reference coordinates
+        ctx.save();
+        ctx.translate(offsetX, offsetY);
+        ctx.scale(scale, scale);
+        
+        // Use reference dimensions for drawing
+        const rw = this.refWidth;
+        const rh = this.refHeight;
+        
         // Draw Tactical Wall (Reverted to compact size)
         if (this.assets.wall && this.assets.wall.complete) {
-            // Wall is back to a grounded block
             ctx.drawImage(this.assets.wall, 100 - 45, this.playerBaseY - 60, 90, 120);
         } else {
             ctx.fillStyle = "#475569";
@@ -1080,11 +1136,11 @@ class AppController {
 
         // Grid background
         ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
-        for(let i = 0; i < w; i += 40) {
-            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, h); ctx.stroke();
+        for(let i = 0; i < rw; i += 40) {
+            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, rh); ctx.stroke();
         }
-        for(let j = 0; j < h; j += 40) {
-            ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(w, j); ctx.stroke();
+        for(let j = 0; j < rh; j += 40) {
+            ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(rw, j); ctx.stroke();
         }
 
         // Draw Bullets (behind everything for tracer effect)
@@ -1352,6 +1408,9 @@ class AppController {
         });
         
         // Restore from screen shake transform
+        ctx.restore();
+        
+        // Restore from fullscreen scale transform
         ctx.restore();
     }
 }
