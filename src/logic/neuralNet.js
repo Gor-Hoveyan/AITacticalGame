@@ -70,7 +70,7 @@ export class NeuralNetwork {
         // === INPUT TO HIDDEN (STRICT ISOLATION) ===
 
         // H0 - Lethality: Driven exclusively by Weapons
-        this.weights_ih[2][0] = 8.0;   // Firearms (Strong)
+        this.weights_ih[2][0] = 12.0;  // Firearms (Very Strong — scaled damage makes guns dominant)
         this.weights_ih[1][0] = 6.0;   // Melee (Strong)
         this.weights_ih[this.inputNodes][0] = -5.0; // Needs at least *some* weapon to activate Lethality
 

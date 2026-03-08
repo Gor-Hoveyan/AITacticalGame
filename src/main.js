@@ -295,7 +295,7 @@ class AppController {
         this.meleeSwingActive = false;
         
         // Player position
-        this.playerX = 180;
+        this.playerX = 150;
         this.playerY = 0;
         this.playerBaseY = 0;
         
@@ -367,6 +367,8 @@ class AppController {
             el.addEventListener('input', () => {
                 this.displays.status(key).textContent = el.value;
                 if (!this.battleActive) {
+                    // Recalculate neural network weights from scratch
+                    this.nn = new NeuralNetwork(4, 3, 4);
                     this.processDecision();
                 }
             });
@@ -411,10 +413,11 @@ class AppController {
         this.updateBtn.addEventListener('click', () => this.processDecision());
         
         this.setupCanvas();
-        this.processDecision();
         
-        // Initialize the Neural Network (8 Inputs, 8 Hidden, 4 Outputs)
-        this.nn = new NeuralNetwork(8, 8, 4);
+        // Initialize the Neural Network (4 Inputs, 3 Hidden, 4 Outputs)
+        this.nn = new NeuralNetwork(4, 3, 4);
+        
+        this.processDecision();
     }
 
     startBattle() {
@@ -440,6 +443,9 @@ class AppController {
         
         this.playerX = 300; // Start in the open
         this.updateHUD();
+        
+        // Lock the AI decision at battle start using the current slider values
+        this.processDecision();
     }
 
     stopBattle() {
@@ -475,6 +481,8 @@ class AppController {
 
     restartBattle() {
         this.gameOverEl.classList.add('hidden');
+        // Recalculate neural network weights from scratch on restart
+        this.nn = new NeuralNetwork(4, 3, 4);
         this.startBattle();
     }
 
@@ -656,76 +664,7 @@ class AppController {
         this.updateHUD();
     }
 
-    processBattleDecision() {
-        // Force-refresh Neural Network logic each call. Prevents Vite HMR caching from masking weight upgrades.
-        this.nn = new NeuralNetwork(4, 3, 4);
 
-        // When previewing before a battle, use the slider values. During battle, use the live simulated states.
-        const health = this.battleActive ? this.liveHealth : parseFloat(this.inputs.health.value);
-        const enemies = this.battleActive ? this.enemies.filter(e => e.alive).length : parseInt(this.inputs.enemies.value);
-        
-        const firearms = parseFloat(this.inputs.firearms.value); // 0-5
-        const melee = parseFloat(this.inputs.melee.value); // 0-5
-
-        // Auto-win condition
-        if (enemies <= 0) {
-            this.currentAction = "Attack";
-            return;
-        }
-
-        // --- NORMALIZE INPUTS BETWEEN 0.0 AND 1.0 FOR NEURAL NETWORK ---
-        // 0: Health (0-1), 1: Melee (0-1), 2: Firearms (0-1), 3: Enemies (0-1)
-        
-        const normHealth = health / 100.0;
-        const normMelee = melee / 5.0;
-        const normFirearms = firearms / 5.0;
-        const normEnemies = Math.min(enemies / 10.0, 1.0); // Assume 10 enemies is max threat
-
-        // Feed forward through Neural Network
-        const inputs = [
-            normHealth, normMelee, normFirearms, normEnemies
-        ];
-        
-        const outputs = this.nn.feedForward(inputs);
-
-        // Find highest output activation
-        let bestScore = -1;
-        let bestIndex = 0;
-        let sumVotes = 0;
-        
-        for (let i = 0; i < outputs.length; i++) {
-            sumVotes += outputs[i];
-            if (outputs[i] > bestScore) {
-                bestScore = outputs[i];
-                bestIndex = i;
-            }
-        }
-
-        // Output index mapping based on neuralNet.js
-        // 0=Attack, 1=Retreat, 2=Evade, 3=Hide
-        const actions = ["Attack", "Retreat", "Evade", "Hide"];
-        let bestAction = actions[bestIndex];
-
-
-        // --- DETERMINISTIC PREDICTION OVERRIDE ---
-        // If the AI thinks it should attack, first simulate the mathematical outcome.
-        if (bestAction === "Attack") {
-            const willWin = this.predictCombatOutcome(health, melee, firearms, enemies);
-            if (!willWin) {
-                // If we know we'd lose the fight, fallback to best evasive action
-                bestAction = "Retreat";
-            }
-        }
-
-        this.currentAction = bestAction;
-        
-        // Update bestIndex to match any overrides that occurred
-        bestIndex = actions.indexOf(bestAction);
-        
-        const total = sumVotes;
-        this.updateDecisionUI(bestIndex, total > 0 ? (bestScore / total) : 0.25);
-    }
-    
     predictCombatOutcome(health, meleeLvl, firearmLvl, numEnemies) {
         // Simulates the exact deterministic combat taking place in battleTick
         let simHealth = health;
@@ -743,10 +682,11 @@ class AppController {
             // --- Player Attack Logic ---
             if (firearmLvl >= 1) {
                 pFireTimer++;
-                if (pFireTimer >= 12) {
+                const fireRate = Math.max(5, 14 - firearmLvl * 2); // Lvl1=12, Lvl5=4
+                if (pFireTimer >= fireRate) {
                     pFireTimer = 0;
-                    // Bullet damage takes 250ms (15 frames) to land, but mathematically it's applied
-                    enemyHealths[0] -= 30; // 30 deterministic player damage (was 25)
+                    const gunDamage = 15 + (firearmLvl * 10); // Lvl1=25, Lvl5=65
+                    enemyHealths[0] -= gunDamage;
                     if (enemyHealths[0] <= 0) {
                         enemyHealths.shift(); // Remove dead enemy
                         simEnemies--;
@@ -754,9 +694,10 @@ class AppController {
                 }
             } else if (meleeLvl >= 1) {
                 pFireTimer++;
-                if (pFireTimer >= 30) {
+                const swingRate = Math.max(12, 35 - meleeLvl * 5); // Lvl1=30, Lvl5=10
+                if (pFireTimer >= swingRate) {
                     pFireTimer = 0;
-                    const dmg = 5 + (meleeLvl * 6) + 2; 
+                    const dmg = 10 + (meleeLvl * 15); // Lvl1=25, Lvl5=85
                     enemyHealths[0] -= dmg;
                     if (enemyHealths[0] <= 0) {
                         enemyHealths.shift();
@@ -792,9 +733,17 @@ class AppController {
             // Priority 1: Ranged Attack (needs gun)
             if (firearms >= 1) {
                 this.fireTimer++;
-                if (this.fireTimer >= 12) {
+                const fireRate = Math.max(5, 14 - firearms * 2); // Lvl1=12, Lvl5=4
+                if (this.fireTimer >= fireRate) {
                     this.fireTimer = 0;
                     this.isFiring = true;
+                    
+                    // Tactical Positioning: Snap to the left behind cover when shooting
+                    if (this.playerX > 100) {
+                        this.playerX -= 5.0; // Smoothly slide left into cover
+                    } else if (this.playerX < 100) {
+                        this.playerX += 2.0;
+                    }
                     
                     // Screen shake
                     this.screenShake = 8;
@@ -812,10 +761,11 @@ class AppController {
                     if (target) {
                         this.bullets.push(new Bullet(this.playerX + 40, this.playerBaseY, target.x, target.y, this.assets.bullet));
                         
-                        // Damage enemy
+                        // Damage enemy — scales with gun level
+                        const gunDamage = 15 + (firearms * 10); // Lvl1=25, Lvl5=65
                         setTimeout(() => {
                             if (target.alive) {
-                                const killed = target.takeDamage(30); // 30 Fixed deterministic damage (was 25)
+                                const killed = target.takeDamage(gunDamage);
                                 
                                 // Impact particles
                                 for (let i = 0; i < 10; i++) {
@@ -847,7 +797,8 @@ class AppController {
                 // Only attack if close enough (< 120px to be safe)
                 if (distToEnemy < 120) {
                     this.fireTimer++;
-                    if (this.fireTimer >= 30) { // Much slower than shooting
+                    const swingRate = Math.max(12, 35 - melee * 5); // Lvl1=30, Lvl5=10
+                    if (this.fireTimer >= swingRate) {
                         this.fireTimer = 0;
                         this.isFiring = true; 
                         this.attackType = 'melee';
@@ -864,8 +815,7 @@ class AppController {
                         }
                         
                         if (target) {
-                            // NERFED DAMAGE: Deterministic Base 5 + (Melee Level * 6)
-                            const dmg = 5 + (melee * 6) + 2; 
+                            const dmg = 10 + (melee * 15); // Lvl1=25, Lvl5=85
                             const killed = target.takeDamage(dmg, this.playerX);
                             
                             // Blood + slash visual at enemy
@@ -928,9 +878,9 @@ class AppController {
             }
         } else if (action === "Hide") {
             // Move to cover (New wall position)
-            if (this.playerX > 100) {
+            if (this.playerX > 50) {
                 this.playerX -= 2.0; 
-            } else if (this.playerX < 100) {
+            } else if (this.playerX < 50) {
                 this.playerX += 2.0;
             }
             // Small subtle "stealth" shimmer
@@ -1005,6 +955,10 @@ class AppController {
         this.stopBtn.classList.add('hidden');
         this.startBtn.classList.add('hidden'); // Keep start button hidden, use restart
         this.battleControlsEl.classList.add('hidden'); // Hide the empty container overlay
+        
+        // Fully reset the AI state for the next round immediately after game over
+        this.nn = new NeuralNetwork(4, 3, 4);
+        this.processDecision();
     }
 
     setupCanvas() {
@@ -1027,9 +981,6 @@ class AppController {
     }
 
     processDecision() {
-        // Instantiate a fresh Neural Network to prevent caching issues, just like processBattleDecision
-        this.previewNN = new NeuralNetwork(4, 3, 4);
-
         const health = parseFloat(this.inputs.health.value);
         const melee = parseFloat(this.inputs.melee.value);
         const firearms = parseFloat(this.inputs.firearms.value);
@@ -1051,7 +1002,7 @@ class AppController {
 
         // Feed forward through Neural Network
         const nnInputs = [normHealth, normMelee, normFirearms, normEnemies];
-        const outputs = this.previewNN.feedForward(nnInputs);
+        const outputs = this.nn.feedForward(nnInputs);
 
         let bestIndex = 0;
         let bestScore = outputs[0];
