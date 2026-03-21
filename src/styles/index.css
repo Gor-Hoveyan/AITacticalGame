@@ -29,6 +29,7 @@ body {
   align-items: center;
   padding: 2rem;
   overflow-x: hidden;
+  user-select: none;
 }
 
 #app {
