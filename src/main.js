@@ -350,7 +350,7 @@ class AppController {
         // Load Sprites
         const onLoad = () => this.assetsLoaded++;
         this.assets.tacticalEnemy.src = './src/assets/tactical_enemy.png';
-        this.assets.tacticalPlayer.src = './src/assets/tactical_player.png';
+        this.assets.tacticalPlayer.src = parseInt(this.inputs.firearms.value) > 0 ? './src/assets/tactical_player.png' : './src/assets/tactical_player_with_knife.png';
         this.assets.bullet.src = './src/assets/bullet.png';
         this.assets.muzzleFlash.src = './src/assets/muzzle_flash.png';
         this.assets.knife.src = './src/assets/knife.png';
@@ -369,6 +369,7 @@ class AppController {
                 if (!this.battleActive) {
                     // Recalculate neural network weights from scratch
                     this.nn = new NeuralNetwork(4, 3, 4);
+                    this.assets.tacticalPlayer.src = parseInt(this.inputs.firearms.value) > 0 ? './src/assets/tactical_player.png' : './src/assets/tactical_player_with_knife.png';
                     this.processDecision();
                 }
             });
