@@ -224,6 +224,7 @@ class AppController {
         this.ai = new NeuralNetwork(8, 8, 4);
         this.strings = ["Attack", "Retreat", "Evade", "Hide"];
         this.lang = 'en';
+        this.theme = localStorage.getItem('theme') || 'dark';
         
         this.translations = {
             en: {
@@ -392,6 +393,10 @@ class AppController {
         this.restartBtn.addEventListener('click', () => this.restartBattle());
         
         document.getElementById('lang-switch').addEventListener('click', () => this.toggleLanguage());
+        
+        // Theme toggle
+        document.getElementById('theme-toggle').addEventListener('click', () => this.toggleTheme());
+        this.applyTheme(this.theme);
         
         // Fullscreen toggle
         const fsBtn = document.getElementById('fullscreen-btn');
@@ -910,6 +915,28 @@ class AppController {
         this.processDecision(); 
     }
 
+    toggleTheme() {
+        this.theme = this.theme === 'dark' ? 'light' : 'dark';
+        this.applyTheme(this.theme);
+        localStorage.setItem('theme', this.theme);
+    }
+
+    applyTheme(theme) {
+        const html = document.documentElement;
+        const btn = document.getElementById('theme-toggle');
+        const icon = btn.querySelector('.theme-icon');
+        
+        if (theme === 'light') {
+            html.setAttribute('data-theme', 'light');
+            icon.textContent = '🌙';
+            btn.title = 'Switch to Dark Mode';
+        } else {
+            html.removeAttribute('data-theme');
+            icon.textContent = '☀️';
+            btn.title = 'Switch to Light Mode';
+        }
+    }
+
     updateInterface() {
         const t = this.translations[this.lang];
         
@@ -1130,7 +1157,8 @@ class AppController {
         const h = this.canvas.height;
         
         // Clear the entire real canvas
-        ctx.fillStyle = "#0f172a";
+        const canvasBg = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim();
+        ctx.fillStyle = canvasBg || "#0f172a";
         ctx.fillRect(0, 0, w, h);
         
         // Calculate scale factor for fullscreen
@@ -1160,7 +1188,8 @@ class AppController {
         ctx.translate(this.shakeX, this.shakeY);
 
         // Grid background
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
+        const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--canvas-grid').trim();
+        ctx.strokeStyle = gridColor || "rgba(255, 255, 255, 0.03)";
         for(let i = 0; i < rw; i += 40) {
             ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, rh); ctx.stroke();
         }
