@@ -241,7 +241,8 @@ class AppController {
                 gameOver: "GAME OVER",
                 retreated: "Hero Retreated!",
                 footer: "© 2026 AI Tactical Research Project",
-                actions: ["Attack", "Retreat", "Evade", "Hide", "Standby"]
+                actions: ["Attack", "Retreat", "Evade", "Hide", "Standby"],
+                safetyOverride: "Enable Safety Override (System 2)"
             },
             hy: {
                 title: "AI Տակտիկական Գործակալ",
@@ -258,7 +259,8 @@ class AppController {
                 gameOver: "ԽԱՂԻ ԱՎԱՐՏ",
                 retreated: "Հերոսը Նահանջեց!",
                 footer: "© 2026 Տակտիկական Հետազոտական Ծրագիր",
-                actions: ["Հարձակում", "Նահանջ", "Խուսափում", "Թաքնվել", "Սպասման ռեժիմ"]
+                actions: ["Հարձակում", "Նահանջ", "Խուսափում", "Թաքնվել", "Սպասման ռեժիմ"],
+                safetyOverride: "Միացնել Անվտանգության Համակարգը"
             }
         };
         
@@ -317,6 +319,8 @@ class AppController {
             enemies: document.getElementById('enemies')
         };
         
+        this.overrideToggle = document.getElementById('override-toggle');
+        
         this.displays = {
             decision: document.getElementById('decision-text'),
             status: id => document.getElementById(`${id}-val`)
@@ -373,6 +377,13 @@ class AppController {
                     this.processDecision();
                 }
             });
+        });
+
+        // Trigger decision update on toggle change
+        this.overrideToggle.addEventListener('change', () => {
+            if (!this.battleActive) {
+                this.processDecision();
+            }
         });
 
         // Battle controls
@@ -929,6 +940,9 @@ class AppController {
             if (t.inputs[i]) label.textContent = t.inputs[i];
         });
         
+        const toggleLabel = document.getElementById('toggle-label-text');
+        if (toggleLabel) toggleLabel.textContent = t.safetyOverride;
+        
         // Status Badge if Ready
         if (!this.battleActive && this.currentAction === "Standby") {
              document.getElementById('ai-status').textContent = t.ready;
@@ -990,6 +1004,7 @@ class AppController {
         if (enemies === 0) {
             this.currentAction = "Attack";
             this.updateDecisionUI(0, 0.5);
+            this.updateBreakdownChart([1, 0, 0, 0], 0, false);
             return;
         }
 
@@ -1018,19 +1033,77 @@ class AppController {
         }
 
         let bestAction = this.strings[bestIndex];
+        let wasOverridden = false;
+        const nnBestIndex = bestIndex; // Store the original NN pick
 
         // --- DETERMINISTIC PREDICTION OVERRIDE FOR PREVIEWS ---
-        if (bestAction === "Attack") {
+        const overrideEnabled = this.overrideToggle.checked;
+        if (overrideEnabled && bestAction === "Attack") {
             const willWin = this.predictCombatOutcome(health, melee, firearms, enemies);
             if (!willWin) {
                 bestAction = "Retreat";
                 bestIndex = 1;
+                wasOverridden = true;
             }
         }
 
         this.currentAction = bestAction;
         const confidence = totalScore > 0 ? (bestScore / totalScore) : 0.25;
         this.updateDecisionUI(bestIndex, confidence);
+        this.updateBreakdownChart(outputs, bestIndex, wasOverridden);
+    }
+
+    updateBreakdownChart(outputs, winnerIdx, wasOverridden) {
+        const t = this.translations[this.lang];
+        const totalScore = outputs.reduce((a, b) => a + b, 0);
+        const rows = document.querySelectorAll('.breakdown-row');
+        const actionNames = this.lang === 'en' ? this.strings : t.actions;
+        const colors = ['#f43f5e', '#38bdf8', '#fbbf24', '#10b981'];
+
+        rows.forEach((row, i) => {
+            const pct = totalScore > 0 ? (outputs[i] / totalScore) * 100 : 25;
+            const bar = document.getElementById(`breakdown-bar-${i}`);
+            const pctEl = document.getElementById(`breakdown-pct-${i}`);
+            const nameEl = document.getElementById(`breakdown-name-${i}`);
+            const scoreVal = document.getElementById(`score-val-${i}`);
+            const scoreChip = document.getElementById(`score-chip-${i}`);
+
+            // Animate bar width
+            bar.style.width = `${pct}%`;
+            pctEl.textContent = `${pct.toFixed(1)}%`;
+
+            // Update label name (for language switch)
+            nameEl.textContent = actionNames[i];
+
+            // Raw score
+            scoreVal.textContent = outputs[i].toFixed(4);
+
+            // Winner highlight
+            if (i === winnerIdx) {
+                row.classList.add('winner');
+                scoreChip.classList.add('active');
+            } else {
+                row.classList.remove('winner');
+                scoreChip.classList.remove('active');
+            }
+        });
+
+        // Update winner badge
+        const badge = document.getElementById('breakdown-winner');
+        const winnerName = actionNames[winnerIdx];
+        const winnerPct = totalScore > 0 ? ((outputs[winnerIdx] / totalScore) * 100).toFixed(1) : '25.0';
+        
+        if (wasOverridden) {
+            badge.textContent = `⚡ OVERRIDE → ${winnerName}`;
+            badge.style.borderColor = colors[winnerIdx];
+            badge.style.color = colors[winnerIdx];
+            badge.style.background = `${colors[winnerIdx]}18`;
+        } else {
+            badge.textContent = `${winnerPct}% ${winnerName}`;
+            badge.style.borderColor = colors[winnerIdx];
+            badge.style.color = colors[winnerIdx];
+            badge.style.background = `${colors[winnerIdx]}18`;
+        }
     }
 
     updateDecisionUI(idx, confidence) {

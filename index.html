@@ -1,22 +1,27 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AI Tactical Decision Agent</title>
     <link rel="stylesheet" href="./src/styles/index.css" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@400;700&family=Noto+Sans+Armenian:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@400;700&family=Noto+Sans+Armenian:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="app">
       <header>
         <div class="header-content">
-            <h1>AI Tactical Agent</h1>
-            <p>Real-time Neural Decision System</p>
+          <h1>AI Tactical Agent</h1>
+          <p>Real-time Neural Decision System</p>
         </div>
-        <button id="lang-switch" class="btn-lang" title="Switch Language">🇦🇲 HY</button>
+        <button id="lang-switch" class="btn-lang" title="Switch Language">
+          🇦🇲 HY
+        </button>
       </header>
 
       <main class="container">
@@ -45,48 +50,177 @@
               <span class="value" id="enemies-val">1</span>
             </div>
           </div>
+          <div class="toggle-container">
+            <label class="switch">
+              <input type="checkbox" id="override-toggle" checked>
+              <span class="slider round"></span>
+            </label>
+            <span class="toggle-label" id="toggle-label-text">Enable Safety Override</span>
+          </div>
           <button id="update-ai" class="btn-primary">Process Decision</button>
         </section>
 
         <section class="display">
           <div class="visualization-container glass">
-              <div id="game-info">
-                  <div class="status-badge" id="ai-status">Ready</div>
+            <div id="game-info">
+              <div class="status-badge" id="ai-status">Ready</div>
+            </div>
+
+            <!-- Live HUD -->
+            <div id="combat-hud">
+              <div class="hud-stat health-stat">
+                <span class="hud-icon">❤️</span>
+                <div class="hud-bar">
+                  <div
+                    class="hud-bar-fill"
+                    id="hud-health-bar"
+                    style="width: 100%"
+                  ></div>
+                </div>
+                <span class="hud-value" id="hud-health">100</span>
               </div>
-              
-              <!-- Live HUD -->
-              <div id="combat-hud">
-                  <div class="hud-stat health-stat">
-                      <span class="hud-icon">❤️</span>
-                      <div class="hud-bar">
-                          <div class="hud-bar-fill" id="hud-health-bar" style="width: 100%"></div>
-                      </div>
-                      <span class="hud-value" id="hud-health">100</span>
-                  </div>
-                  <div class="hud-stat enemy-stat">
-                      <span class="hud-icon">💀</span>
-                      <span class="hud-value"><span id="hud-kills">0</span> / <span id="hud-enemies">1</span></span>
-                  </div>
+              <div class="hud-stat enemy-stat">
+                <span class="hud-icon">💀</span>
+                <span class="hud-value"
+                  ><span id="hud-kills">0</span> /
+                  <span id="hud-enemies">1</span></span
+                >
               </div>
-              
-              <!-- Game Over Overlay -->
-              <div id="game-over" class="game-over-overlay hidden">
-                  <div class="game-over-text" id="game-over-text">GAME OVER</div>
-                  <button id="restart-btn" class="btn-restart">Restart</button>
-              </div>
-              
-              <canvas id="game-canvas"></canvas>
-              <button id="fullscreen-btn" class="btn-fullscreen" title="Toggle Fullscreen">⛶</button>
+            </div>
+
+            <!-- Game Over Overlay -->
+            <div id="game-over" class="game-over-overlay hidden">
+              <div class="game-over-text" id="game-over-text">GAME OVER</div>
+              <button id="restart-btn" class="btn-restart">Restart</button>
+            </div>
+
+            <canvas id="game-canvas"></canvas>
+            <button
+              id="fullscreen-btn"
+              class="btn-fullscreen"
+              title="Toggle Fullscreen"
+            >
+              ⛶
+            </button>
           </div>
-          
+
           <!-- Battle Controls -->
           <div class="battle-controls glass">
-              <button id="start-battle" class="btn-battle">⚔️ Start Battle</button>
-              <button id="stop-battle" class="btn-stop hidden">⏹️ Stop</button>
+            <button id="start-battle" class="btn-battle">
+              ⚔️ Start Battle
+            </button>
+            <button id="stop-battle" class="btn-stop hidden">⏹️ Stop</button>
           </div>
-          
-          <div class="decision-card glass">
-            <h3>Neural Output</h3>
+
+          <!-- Neural Decision Breakdown Chart -->
+          <div class="decision-breakdown glass" id="decision-breakdown">
+            <div class="breakdown-header">
+              <h3>Neural Output</h3>
+              <div class="breakdown-badge" id="breakdown-winner">—</div>
+            </div>
+            <div class="breakdown-chart" id="breakdown-chart">
+              <!-- Attack -->
+              <div class="breakdown-row" data-action="attack">
+                <div class="breakdown-label">
+                  <span class="breakdown-icon">⚔️</span>
+                  <span class="breakdown-name" id="breakdown-name-0"
+                    >Attack</span
+                  >
+                </div>
+                <div class="breakdown-bar-track">
+                  <div
+                    class="breakdown-bar-fill attack-fill"
+                    id="breakdown-bar-0"
+                    style="width: 0%"
+                  ></div>
+                  <div
+                    class="breakdown-bar-glow attack-glow"
+                    id="breakdown-glow-0"
+                  ></div>
+                </div>
+                <span class="breakdown-pct" id="breakdown-pct-0">0%</span>
+              </div>
+              <!-- Retreat -->
+              <div class="breakdown-row" data-action="retreat">
+                <div class="breakdown-label">
+                  <span class="breakdown-icon">🛡️</span>
+                  <span class="breakdown-name" id="breakdown-name-1"
+                    >Retreat</span
+                  >
+                </div>
+                <div class="breakdown-bar-track">
+                  <div
+                    class="breakdown-bar-fill retreat-fill"
+                    id="breakdown-bar-1"
+                    style="width: 0%"
+                  ></div>
+                  <div
+                    class="breakdown-bar-glow retreat-glow"
+                    id="breakdown-glow-1"
+                  ></div>
+                </div>
+                <span class="breakdown-pct" id="breakdown-pct-1">0%</span>
+              </div>
+              <!-- Evade -->
+              <div class="breakdown-row" data-action="evade">
+                <div class="breakdown-label">
+                  <span class="breakdown-icon">💨</span>
+                  <span class="breakdown-name" id="breakdown-name-2"
+                    >Evade</span
+                  >
+                </div>
+                <div class="breakdown-bar-track">
+                  <div
+                    class="breakdown-bar-fill evade-fill"
+                    id="breakdown-bar-2"
+                    style="width: 0%"
+                  ></div>
+                  <div
+                    class="breakdown-bar-glow evade-glow"
+                    id="breakdown-glow-2"
+                  ></div>
+                </div>
+                <span class="breakdown-pct" id="breakdown-pct-2">0%</span>
+              </div>
+              <!-- Hide -->
+              <div class="breakdown-row" data-action="hide">
+                <div class="breakdown-label">
+                  <span class="breakdown-icon">🫥</span>
+                  <span class="breakdown-name" id="breakdown-name-3">Hide</span>
+                </div>
+                <div class="breakdown-bar-track">
+                  <div
+                    class="breakdown-bar-fill hide-fill"
+                    id="breakdown-bar-3"
+                    style="width: 0%"
+                  ></div>
+                  <div
+                    class="breakdown-bar-glow hide-glow"
+                    id="breakdown-glow-3"
+                  ></div>
+                </div>
+                <span class="breakdown-pct" id="breakdown-pct-3">0%</span>
+              </div>
+            </div>
+            <!-- Raw scores -->
+            <div class="breakdown-scores" id="breakdown-scores">
+              <div class="score-chip" id="score-chip-0">
+                <span class="score-label">ATK</span
+                ><span class="score-val" id="score-val-0">0.00</span>
+              </div>
+              <div class="score-chip" id="score-chip-1">
+                <span class="score-label">RET</span
+                ><span class="score-val" id="score-val-1">0.00</span>
+              </div>
+              <div class="score-chip" id="score-chip-2">
+                <span class="score-label">EVD</span
+                ><span class="score-val" id="score-val-2">0.00</span>
+              </div>
+              <div class="score-chip" id="score-chip-3">
+                <span class="score-label">HID</span
+                ><span class="score-val" id="score-val-3">0.00</span>
+              </div>
+            </div>
             <div id="decision-text" class="decision">Standby</div>
           </div>
         </section>
